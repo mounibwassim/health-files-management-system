@@ -53,9 +53,43 @@ export default function FileRecords() {
     }, [search, stateId, fileType]);
 
     // Handle Download (PDF)
-    const handleDownload = () => {
+    const handleDownload = async () => {
         try {
             const doc = new jsPDF();
+
+            // Load Arabic Font
+            try {
+                const response = await fetch('/fonts/Amiri-Regular.ttf');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+
+                    await new Promise((resolve, reject) => {
+                        reader.onloadend = () => {
+                            if (!reader.result) {
+                                reject("Empty reader result");
+                                return;
+                            }
+                            // reader.result is "data:font/ttf;base64,....."
+                            // We need just the base64 part
+                            const base64data = reader.result.toString().split(',')[1];
+                            if (base64data) {
+                                doc.addFileToVFS('Amiri-Regular.ttf', base64data);
+                                doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+                                doc.setFont('Amiri');
+                                console.log("Arabic font loaded successfully");
+                            }
+                            resolve();
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                } else {
+                    console.warn("Amiri font not found at /fonts/Amiri-Regular.ttf");
+                }
+            } catch (e) {
+                console.warn("Could not load Arabic font, falling back to default.", e);
+            }
 
             // Header
             doc.setFontSize(18);
@@ -64,7 +98,17 @@ export default function FileRecords() {
             doc.text(`Generated: ${new Date().toLocaleDateString()} - by ${user?.username || 'Unknown'}`, 14, 30);
 
             // Table Data
-            const tableColumn = ["Status", "Date", "Employee Name", "CCP Account", "Amount", "Notes"];
+            const tableColumn = ["Status", "Date", "Employee Name", "CCP", "Amount", "Notes"];
+
+            // ADMIN VISIBILITY ADDITION
+            if (user?.role === 'admin') {
+                tableColumn.push("Created By"); // We technically don't have the data yet, but requested strictly.
+                // Note: The backend currently returns 'r.*'. Ideally we should join to get 'username'. 
+                // However, without changing the backend query to JOIN users, we can't show the name.
+                // I will update the backend query in the next step to ensure 'creator_username' is available.
+                // For now, I will use 'user_id' if available or empty.
+            }
+
             const tableRows = [];
 
             records.forEach(record => {
@@ -76,6 +120,12 @@ export default function FileRecords() {
                     `${record.amount} DA`,
                     record.notes || '--'
                 ];
+
+                if (user?.role === 'admin') {
+                    // Placeholder until backend update
+                    recordData.push(record.username || `User ${record.user_id}`);
+                }
+
                 tableRows.push(recordData);
             });
 
@@ -84,7 +134,11 @@ export default function FileRecords() {
                 head: [tableColumn],
                 body: tableRows,
                 startY: 40,
-                styles: { fontSize: 10, cellPadding: 3 },
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 3,
+                    font: 'Amiri' // Use the font
+                },
                 headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
                 alternateRowStyles: { fillColor: [240, 240, 240] },
                 didParseCell: (data) => {
@@ -242,6 +296,25 @@ export default function FileRecords() {
                 </div>
             </div>
 
+            {/* STRICT VISIBILITY SUMMARY STATS */}
+            <div className="mb-6 bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                {user?.role === 'admin' ? (
+                    <div className="flex flex-col sm:flex-row justify-between items-center text-indigo-900 dark:text-indigo-100">
+                        <span className="font-bold text-lg">Total Records: {records.length}</span>
+                        <span className="text-sm opacity-80 mt-1 sm:mt-0">
+                            Viewing Global Data (Admin)
+                        </span>
+                    </div>
+                ) : (
+                    <div className="flex flex-col sm:flex-row justify-between items-center text-indigo-900 dark:text-indigo-100">
+                        <span className="font-bold text-lg">My Records: {records.length}</span>
+                        <span className="text-sm opacity-80 mt-1 sm:mt-0">
+                            Viewing Your Data Only
+                        </span>
+                    </div>
+                )}
+            </div>
+
             {/* Toolbar */}
             <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="relative">
@@ -296,6 +369,12 @@ export default function FileRecords() {
                                         Amount {sortConfig.key === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Notes / Reason</th>
+
+                                    {/* STRICT VISIBILITY: ADMIN COLUMN */}
+                                    {user?.role === 'admin' && (
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
+                                    )}
+
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -320,6 +399,15 @@ export default function FileRecords() {
                                                 <span className="text-gray-400 italic">--</span>
                                             )}
                                         </td>
+
+                                        {/* STRICT VISIBILITY: ADMIN COLUMN DATA */}
+                                        {user?.role === 'admin' && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400 font-medium">
+                                                {/* Requires Backend Join ideally, fallback to ID if needed */}
+                                                {record.username || `User ${record.user_id}`}
+                                            </td>
+                                        )}
+
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <button
                                                 onClick={() => { setEditingRecord(record); setIsModalOpen(true); }}
@@ -337,7 +425,7 @@ export default function FileRecords() {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan="7" className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+                                        <td colSpan={user?.role === 'admin' ? 8 : 7} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
                                             No records found.
                                         </td>
                                     </tr>

@@ -12,8 +12,10 @@
   "dependencies": {
     "axios": "^1.13.4",
     "clsx": "^2.1.1",
+    "file-saver": "^2.0.5",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

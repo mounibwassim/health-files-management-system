@@ -180,25 +180,7 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
     }
 });
 
-// Reset User Password
-app.post('/api/admin/users/:id/reset-password', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'admin') return res.sendStatus(403);
-    try {
-        const { id } = req.params;
-        const { newPassword } = req.body; // Accept custom password
-
-        const passwordToSet = (newPassword && newPassword.trim().length > 0) ? newPassword.trim() : '123456';
-
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(passwordToSet, salt);
-
-        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, id]);
-        res.json({ success: true, message: `Password reset to '${passwordToSet}'` });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
+// Route Removed: Reset User Password (Security Update)
 
 app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
@@ -341,9 +323,10 @@ app.get('/api/states/:stateId/files/:fileType/records', authenticateToken, async
 
         // 2. Query with direct ID linkage
         let query = `
-            SELECT r.*, f.name as file_type_name
+            SELECT r.*, f.name as file_type_name, u.username
             FROM records r
             JOIN file_types f ON r.file_type_id = f.id
+            LEFT JOIN users u ON r.user_id = u.id
             WHERE r.state_id = $1
             AND r.file_type_id = $2
         `;

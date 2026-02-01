@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
-import { Activity, Baby, Eye, FileText, Loader, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Activity, Baby, Eye, FileText, Loader, ArrowLeft, Download, Database } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import { generatePDFDoc } from '../utils/pdfGenerator';
 
 const FILE_TYPES = [
     { id: 'surgery', name: 'Surgery', icon: Activity, color: 'text-red-600', bg: 'bg-red-50' },
@@ -12,15 +16,15 @@ const FILE_TYPES = [
 
 export default function StateDetail() {
     const { id } = useParams();
+    const { user } = useAuth();
     const [state, setState] = useState(null);
     const [counts, setCounts] = useState({});
     const [loading, setLoading] = useState(true);
+    const [zipping, setZipping] = useState(false);
 
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        console.log('Frontend attempting to fetch ID:', id);
-        // Parallel fetch: State Details + Counts
         const fetchData = async () => {
             try {
                 const [stateRes, countsRes] = await Promise.all([
@@ -32,7 +36,6 @@ export default function StateDetail() {
                 setLoading(false);
             } catch (err) {
                 console.error("Failed to fetch state data", err);
-                // Capture exact error message from backend if available
                 const msg = err.response?.data?.error || err.message;
                 setError(msg);
                 setLoading(false);
@@ -40,6 +43,47 @@ export default function StateDetail() {
         };
         fetchData();
     }, [id]);
+
+    const handleDownloadZip = async () => {
+        setZipping(true);
+        try {
+            const zip = new JSZip();
+            const folderName = `Wilaya_${state.code}_${state.name.replace(/\s+/g, '_')}`;
+            const folder = zip.folder(folderName);
+
+            // Fetch all 4 file types
+            const promises = FILE_TYPES.map(async (type) => {
+                try {
+                    const res = await api.get(`/states/${state.code}/files/${type.id}/records`);
+                    const records = res.data;
+
+                    if (records.length > 0) {
+                        const doc = await generatePDFDoc({
+                            stateId: state.code,
+                            fileType: type.id,
+                            records: records,
+                            user: user
+                        });
+                        const blob = doc.output('blob');
+                        folder.file(`${type.name} - Wilaya ${state.code}.pdf`, blob);
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch/generate for ${type.id}`, e);
+                }
+            });
+
+            await Promise.all(promises);
+
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, `${folderName}.zip`);
+
+        } catch (err) {
+            console.error("ZIP Generation failed", err);
+            alert("Failed to generate ZIP folder.");
+        } finally {
+            setZipping(false);
+        }
+    };
 
     if (loading) return <div className="flex justify-center p-10"><Loader className="animate-spin text-indigo-500" /></div>;
 
@@ -56,25 +100,38 @@ export default function StateDetail() {
 
     return (
         <div className="px-4 py-6 animate-in fade-in duration-300">
-            <div className="mb-8">
-                <Link to="/" className="inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-2 transition-colors">
-                    <ArrowLeft className="w-4 h-4 mr-1" /> Back to States
-                </Link>
-                <div className="flex items-baseline mt-2">
-                    <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                        <span className="text-indigo-600 dark:text-indigo-400 mr-3">{state.code}</span>
-                        {state.name}
-                    </h1>
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <Link to="/" className="inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-2 transition-colors">
+                        <ArrowLeft className="w-4 h-4 mr-1" /> Back to States
+                    </Link>
+                    <div className="flex items-baseline mt-2">
+                        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            <span className="text-indigo-600 dark:text-indigo-400 mr-3">{state.code}</span>
+                            {state.name}
+                        </h1>
+                    </div>
                 </div>
+                <button
+                    onClick={handleDownloadZip}
+                    disabled={zipping}
+                    className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none transition-all disabled:opacity-70 disabled:cursor-wait"
+                >
+                    {zipping ? (
+                        <>
+                            <Loader className="animate-spin w-5 h-5 mr-2" /> Compressing...
+                        </>
+                    ) : (
+                        <>
+                            <Database className="w-5 h-5 mr-2" /> Download Full Wilaya
+                        </>
+                    )}
+                </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {FILE_TYPES.map(type => {
                     const Icon = type.icon;
-                    // Map file types slightly if names differ in DB vs IDs here
-                    // Our DB has names like 'surgery', 'ivf', 'eye', 'labs' which match IDs here.
-                    // If DB display_name differs, we rely on the ID match.
-                    // The counts object keys come from 'f.name' in SQL, which is 'surgery', 'ivf'...
                     const count = counts[type.id] || 0;
 
                     return (

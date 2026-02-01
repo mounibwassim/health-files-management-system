@@ -152,17 +152,7 @@ export default function Login() {
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
                                 </div>
-                                {mode === 'login' && (
-                                    <div className="mt-2 text-right">
-                                        <button
-                                            type="button"
-                                            onClick={() => alert("Please contact the Administrator to reset your password.")}
-                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-                                        >
-                                            Forgot Password?
-                                        </button>
-                                    </div>
-                                )}
+
                             </div>
                         )}
 
