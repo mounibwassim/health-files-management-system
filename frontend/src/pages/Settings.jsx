@@ -160,8 +160,8 @@ export default function Settings() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.role === 'admin'
-                                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                                            : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                             }`}>
                                             {u.role}
                                         </span>
@@ -183,14 +183,34 @@ export default function Settings() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         {u.id !== user.id && (
-                                            <button
-                                                onClick={() => handleDeleteUser(u.id, u.username)}
-                                                className="text-red-600 hover:text-red-900 dark:hover:text-red-400 flex items-center ml-auto"
-                                                title="Kick Out User"
-                                            >
-                                                <Trash2 className="h-4 w-4 mr-1" />
-                                                Kick Out
-                                            </button>
+                                            <div className="flex items-center justify-end space-x-2">
+                                                <button
+                                                    onClick={async () => {
+                                                        if (window.confirm(`Reset password for ${u.username} to '123456'?`)) {
+                                                            try {
+                                                                await api.post(`/admin/users/${u.id}/reset-password`);
+                                                                setMessage(`✅ Password reset for ${u.username}`);
+                                                                setTimeout(() => setMessage(''), 3000);
+                                                            } catch (err) {
+                                                                alert("Failed to reset password");
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="text-amber-600 hover:text-amber-900 dark:hover:text-amber-400 flex items-center"
+                                                    title="Reset Password"
+                                                >
+                                                    <Shield className="h-4 w-4 mr-1" />
+                                                    Reset
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteUser(u.id, u.username)}
+                                                    className="text-red-600 hover:text-red-900 dark:hover:text-red-400 flex items-center"
+                                                    title="Kick Out User"
+                                                >
+                                                    <Trash2 className="h-4 w-4 mr-1" />
+                                                    Kick Out
+                                                </button>
+                                            </div>
                                         )}
                                     </td>
                                 </tr>

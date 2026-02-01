@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import RecordModal from '../components/RecordModal';
 import DeleteModal from '../components/DeleteModal';
-import { Plus, Search, Trash2, Edit, ArrowLeft, Loader, CheckCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, ArrowLeft, Loader, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const PAGE_SIZE = 20;
 
@@ -48,24 +50,48 @@ export default function FileRecords() {
         return () => clearTimeout(delayDebounceFn);
     }, [search, stateId, fileType]);
 
-    // Handle Download
-    const handleDownload = async () => {
+    // Handle Download (PDF)
+    const handleDownload = () => {
         try {
-            const response = await api.get(`/records/download/${stateId}/${fileType}`, {
-                responseType: 'blob', // Important
+            const doc = new jsPDF();
+
+            // Header
+            doc.setFontSize(18);
+            doc.text(`State ${stateId} - ${fileType.toUpperCase()} Records`, 14, 22);
+            doc.setFontSize(11);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+
+            // Table Data
+            const tableColumn = ["Status", "Date", "Employee Name", "CCP Account", "Amount", "Notes"];
+            const tableRows = [];
+
+            records.forEach(record => {
+                const recordData = [
+                    record.status === 'completed' ? 'Completed' : 'Incomplete',
+                    new Date(record.treatment_date).toLocaleDateString(),
+                    record.employee_name,
+                    record.postal_account,
+                    `${record.amount} DA`,
+                    record.notes || '--'
+                ];
+                tableRows.push(recordData);
             });
 
-            // Create Blob link to download
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `records_${stateId}_${fileType}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            // Generate Table
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 40,
+                styles: { fontSize: 10, cellPadding: 3 },
+                headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
+                alternateRowStyles: { fillColor: [240, 240, 240] }
+            });
+
+            // Save
+            doc.save(`records_${stateId}_${fileType}.pdf`);
         } catch (err) {
-            console.error("Download failed", err);
-            alert("Failed to download records.");
+            console.error("PDF generation failed", err);
+            alert("Failed to generate PDF.");
         }
     };
 
@@ -196,7 +222,7 @@ export default function FileRecords() {
                         onClick={handleDownload}
                         className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none transition-colors"
                     >
-                        <Loader className="w-4 h-4 mr-2" /> Download Records
+                        <FileText className="w-4 h-4 mr-2" /> Download PDF
                     </button>
                     <button
                         onClick={() => { setEditingRecord(null); setIsModalOpen(true); }}

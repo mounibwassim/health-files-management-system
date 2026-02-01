@@ -92,11 +92,11 @@ export default function Analytics() {
 
             {/* Charts Area */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <h2 className="text-xl font-semibold mb-6 text-gray-800 dark:text-white">Records by Wilaya (Top 20)</h2>
+                <h2 className="text-xl font-semibold mb-6 text-gray-800 dark:text-white">Records by Wilaya</h2>
                 <div className="h-96 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                            data={data.slice(0, 20)}
+                            data={data}
                             margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" opacity={0.1} />

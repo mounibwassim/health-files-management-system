@@ -78,7 +78,7 @@ export default function StatesList() {
         const virtualAlgiers = {
             id: 'virtual-16',
             code: 16,
-            name: 'Algiers (Wilaya 16)',
+            name: 'Algiers',
             isVirtual: true
         };
 
@@ -94,6 +94,14 @@ export default function StatesList() {
         // Sort sub-states
         algiersSubStates.sort((a, b) => a.code - b.code);
     }
+
+    // Helper to format sub-state code
+    const getDisplayCode = (code) => {
+        if (code === 161) return "16 - 1";
+        if (code === 162) return "16 - 2";
+        if (code === 163) return "16 - 3";
+        return code;
+    };
 
     // UI Render Helper
     const renderCard = (state) => {
@@ -142,7 +150,7 @@ export default function StatesList() {
                                         to={`/states/${sub.code}`}
                                         className="block p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all text-center group animate-in zoom-in duration-200"
                                     >
-                                        <div className="text-lg font-bold text-indigo-600 mb-1">{sub.code}</div>
+                                        <div className="text-lg font-bold text-indigo-600 mb-1">{getDisplayCode(sub.code)}</div>
                                         <div className="text-sm text-gray-700 font-medium truncate">{sub.name}</div>
                                     </Link>
                                 ))}

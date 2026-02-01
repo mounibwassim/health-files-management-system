@@ -172,9 +172,25 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
             FROM users u
             LEFT JOIN records r ON u.id = r.user_id
             GROUP BY u.id
-            ORDER BY u.created_at DESC
+            ORDER BY u.role ASC, u.created_at DESC
         `);
         res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Reset User Password (To 123456)
+app.post('/api/admin/users/:id/reset-password', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+    try {
+        const { id } = req.params;
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash('123456', salt);
+
+        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, id]);
+        res.json({ success: true, message: 'Password reset to 123456' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Database error' });

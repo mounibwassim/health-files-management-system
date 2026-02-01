@@ -83,9 +83,7 @@ export default function Login() {
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
-                    <div className="bg-indigo-600 p-3 rounded-xl shadow-lg">
-                        <HeartPulse className="h-10 w-10 text-white" />
-                    </div>
+                    <img src="/logo.png" alt="HealthFiles Manager Logo" className="h-16 w-auto mx-auto object-contain" />
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
                     {mode === 'login' && 'Sign in to HealthFiles'}
@@ -135,8 +133,6 @@ export default function Login() {
                             </div>
                         </div>
 
-
-
                         {/* Password Field - Login, Signup, AND Repair */}
                         {mode !== 'reset' && (
                             <div>
@@ -156,6 +152,17 @@ export default function Login() {
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
                                 </div>
+                                {mode === 'login' && (
+                                    <div className="mt-2 text-right">
+                                        <button
+                                            type="button"
+                                            onClick={() => alert("Please contact the Administrator to reset your password.")}
+                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+                                        >
+                                            Forgot Password?
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
 

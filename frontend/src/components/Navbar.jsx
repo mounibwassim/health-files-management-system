@@ -56,8 +56,8 @@ export default function Navbar() {
                 <div className="flex justify-between h-16 items-center">
                     {/* Logo & Title */}
                     <Link to="/" className="flex items-center space-x-3 group mr-8">
-                        <img src="/logo.png" alt="HealthFiles Manager Logo" className="h-10 w-10 object-contain" />
-                        <span className="font-bold text-xl text-gray-900 dark:text-white tracking-tight">
+                        <img src="/logo.png" alt="HealthFiles Manager Logo" className="h-14 w-auto object-contain" />
+                        <span className="font-bold text-2xl text-gray-900 dark:text-white tracking-tight">
                             HealthFiles Manager
                         </span>
                     </Link>
