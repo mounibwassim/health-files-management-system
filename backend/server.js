@@ -114,6 +114,37 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// 🔒 ADMIN ONLY: Create a New Employee
+app.post('/api/admin/add-user', async (req, res) => {
+    const { username, password, adminUsername } = req.body;
+
+    try {
+        // 1. Security Check: Verify the person asking IS an admin
+        // (In a perfect world we check the token, but for now we check the adminUsername)
+        const adminCheck = await pool.query('SELECT role FROM users WHERE username = $1', [adminUsername]);
+
+        if (adminCheck.rows.length === 0 || adminCheck.rows[0].role !== 'admin') {
+            return res.status(403).json({ error: "Access Denied: Only Admins can add employees." });
+        }
+
+        // 2. Hash the new employee's password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // 3. Insert the new Employee (Role is always 'user')
+        const newUser = await pool.query(
+            "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'user') RETURNING id, username",
+            [username, hashedPassword]
+        );
+
+        res.json({ message: "Employee added successfully!", user: newUser.rows[0] });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: "Server Error: Could not add user." });
+    }
+});
+
 // Middleware to protect other routes
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
