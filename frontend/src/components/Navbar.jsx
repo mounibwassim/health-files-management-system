@@ -56,11 +56,9 @@ export default function Navbar() {
                 <div className="flex justify-between h-16 items-center">
                     {/* Logo & Title */}
                     <Link to="/" className="flex items-center space-x-3 group mr-8">
-                        <div className="bg-indigo-600 p-2 rounded-lg group-hover:bg-indigo-700 transition-colors">
-                            <HeartPulse className="h-6 w-6 text-white" />
-                        </div>
+                        <img src="/logo.png" alt="HealthFiles Manager Logo" className="h-10 w-10 object-contain" />
                         <span className="font-bold text-xl text-gray-900 dark:text-white tracking-tight">
-                            HealthFiles <span className="text-indigo-600 dark:text-indigo-400">DZ</span>
+                            HealthFiles Manager
                         </span>
                     </Link>
 

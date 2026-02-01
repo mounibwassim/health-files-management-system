@@ -298,10 +298,11 @@ app.get('/api/states/:id/counts', authenticateToken, async (req, res) => {
 app.get('/api/states/:stateId/files/:fileType/records', authenticateToken, async (req, res) => {
     try {
         const { stateId, fileType } = req.params;
+        const { search } = req.query; // Search query
         const userId = req.user.id;
         const role = req.user.role;
 
-        console.log(`[GET Records] Request: Code=${stateId}, File=${fileType}, User=${userId}, Role=${role}`);
+        console.log(`[GET Records] Request: Code=${stateId}, File=${fileType}, User=${userId}, Role=${role}, Search=${search}`);
 
         // 1. Resolve IDs explicitly to match POST logic
         const stateRes = await pool.query('SELECT id FROM states WHERE code = $1', [stateId]);
@@ -331,8 +332,14 @@ app.get('/api/states/:stateId/files/:fileType/records', authenticateToken, async
 
         // 3. Apply Isolation
         if (role !== 'admin') {
-            query += ` AND r.user_id = $3`;
+            query += ` AND r.user_id = $${params.length + 1}`;
             params.push(userId);
+        }
+
+        // 4. Apply Search (CCP Account)
+        if (search && search.trim() !== '') {
+            query += ` AND r.postal_account ILIKE $${params.length + 1}`;
+            params.push(`%${search.trim()}%`);
         }
 
         query += ` ORDER BY r.treatment_date DESC`;
@@ -344,6 +351,73 @@ app.get('/api/states/:stateId/files/:fileType/records', authenticateToken, async
     } catch (err) {
         console.error("GET Records Error:", err);
         res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// New Endpoint: Download Records as CSV
+const createCsvWriter = require('csv-writer').createObjectCsvStringifier;
+
+app.get('/api/records/download/:stateId/:fileTypeId', authenticateToken, async (req, res) => {
+    try {
+        const { stateId, fileTypeId } = req.params;
+        const userId = req.user.id;
+        const role = req.user.role;
+
+        // 1. Get State & File Info
+        const stateRes = await pool.query('SELECT * FROM states WHERE code = $1', [stateId]);
+        const fileRes = await pool.query('SELECT * FROM file_types WHERE name = $1', [fileTypeId]);
+
+        if (stateRes.rows.length === 0 || fileRes.rows.length === 0) {
+            return res.status(404).send('State or File Type not found');
+        }
+
+        const state = stateRes.rows[0];
+        const fileType = fileRes.rows[0];
+
+        // 2. Fetch Records
+        let query = `
+            SELECT r.* 
+            FROM records r 
+            WHERE r.state_id = $1 AND r.file_type_id = $2
+        `;
+        const params = [state.id, fileType.id];
+
+        if (role !== 'admin') {
+            query += ` AND r.user_id = $3`;
+            params.push(userId);
+        }
+
+        query += ` ORDER BY r.treatment_date ASC`; // Chronological order
+
+        const result = await pool.query(query, params);
+        const records = result.rows;
+
+        // 3. Generate CSV
+        const csvStringifier = createCsvWriter({
+            header: [
+                { id: 'employee_name', title: 'Employee Name' },
+                { id: 'postal_account', title: 'CCP Account' },
+                { id: 'amount', title: 'Amount' },
+                { id: 'treatment_date', title: 'Date' },
+                { id: 'status', title: 'Status' },
+                { id: 'notes', title: 'Notes' }
+            ]
+        });
+
+        const headerStr = `Wilaya: ${state.name} (${state.code}), Document: ${fileType.display_name}\n`;
+        const columnHeaders = csvStringifier.getHeaderString();
+        const recordsStr = csvStringifier.stringifyRecords(records);
+
+        const fullCsv = headerStr + columnHeaders + recordsStr;
+
+        // 4. Send Response
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="records_${state.code}_${fileType.name}.csv"`);
+        res.send(fullCsv);
+
+    } catch (err) {
+        console.error("Download Error:", err);
+        res.status(500).send('Server Error');
     }
 });
 

@@ -22,9 +22,11 @@ export default function FileRecords() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [recordToDelete, setRecordToDelete] = useState(null);
 
-    const fetchRecords = () => {
+    const fetchRecords = (searchTerm = search) => {
         setLoading(true);
-        api.get(`/states/${stateId}/files/${fileType}/records`)
+        // Use query param for search
+        const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : '';
+        api.get(`/states/${stateId}/files/${fileType}/records${query}`)
             .then(res => {
                 setRecords(res.data);
                 setLoading(false);
@@ -36,10 +38,36 @@ export default function FileRecords() {
             });
     };
 
+    // Debounce Search
     useEffect(() => {
-        console.log("FileRecords mounted. Fetching for:", stateId, fileType);
-        fetchRecords();
-    }, [stateId, fileType]);
+        const delayDebounceFn = setTimeout(() => {
+            console.log("Fetching with search:", search);
+            fetchRecords(search);
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [search, stateId, fileType]);
+
+    // Handle Download
+    const handleDownload = async () => {
+        try {
+            const response = await api.get(`/records/download/${stateId}/${fileType}`, {
+                responseType: 'blob', // Important
+            });
+
+            // Create Blob link to download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `records_${stateId}_${fileType}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (err) {
+            console.error("Download failed", err);
+            alert("Failed to download records.");
+        }
+    };
 
     console.log("Render Records:", records); // Debug Log
 
@@ -108,16 +136,14 @@ export default function FileRecords() {
     };
 
     // Filter, Sort & Pagination Logic
-    // Filter, Sort & Pagination Logic
     const safeRecords = Array.isArray(records) ? records : [];
 
-    const filteredRecords = safeRecords.filter(r => {
-        const nameMatch = r.employee_name?.toLowerCase().includes(search.toLowerCase()) || false;
-        const noteMatch = r.notes?.toLowerCase().includes(search.toLowerCase()) || false;
-        return nameMatch || noteMatch;
-    });
+    // Client-side filtering is no longer needed for search as it's server-side
+    // But we keep it if we want to filter logically? No, server does it.
+    // However, we might want to keep it if the user types faster than debounce? 
+    // Actually, we replace client-side filter with direct use of safeRecords
 
-    const sortedRecords = [...filteredRecords].sort((a, b) => {
+    const sortedRecords = [...safeRecords].sort((a, b) => {
         // Handle specialized sorts if needed, otherwise string/number compare
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
@@ -167,6 +193,12 @@ export default function FileRecords() {
                 </div>
                 <div className="flex space-x-2">
                     <button
+                        onClick={handleDownload}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none transition-colors"
+                    >
+                        <Loader className="w-4 h-4 mr-2" /> Download Records
+                    </button>
+                    <button
                         onClick={() => { setEditingRecord(null); setIsModalOpen(true); }}
                         className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                     >
@@ -184,7 +216,7 @@ export default function FileRecords() {
                     <input
                         type="text"
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
-                        placeholder="Search by Employee Name or Notes..."
+                        placeholder="Search by CCP Account..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
