@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 // Use environment variable for API URL (production) or fallback to proxy (local)
+const apiUrl = import.meta.env.VITE_API_URL || '';
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '/api',
+    baseURL: `${apiUrl}/api`, // Ensures /api is always appended (e.g., https://my-backend.onrender.com/api)
     headers: {
         'Content-Type': 'application/json',
     },
