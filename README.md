@@ -81,6 +81,7 @@ Run the provided SQL scripts in your SQL Editor (Neon/PgAdmin):
 
 ## ✨ Key Features
 *   **Role-Based Access**: Managers vs. Admins.
+*   **Admin Control Panel**: Secure dashboard for CEOs to add employees, audit activity, and manage access.
 *   **Interactive Analytics**: Visual breakdown of records by Wilaya.
 *   **Search & Filter**: Instantly find patient records by name or notes.
 *   **Secure & Private**: Sandbox environment where data is strictly isolated per user.
