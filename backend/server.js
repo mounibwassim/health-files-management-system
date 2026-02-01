@@ -10,7 +10,11 @@ const port = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123';
 
 // Middleware
-app.use(cors());
+// Allow ANY website to talk to your backend (Fixes the Vercel issue)
+app.use(cors({
+    origin: true, // Reflects the request origin, efficiently allowing "all"
+    credentials: true
+}));
 app.use(express.json());
 
 // Database Connection (Import from db.js)
