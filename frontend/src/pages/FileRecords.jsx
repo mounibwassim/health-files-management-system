@@ -385,6 +385,7 @@ export default function FileRecords() {
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead className="bg-gray-50 dark:bg-gray-900">
                                 <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                                     <th
                                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700"
@@ -399,6 +400,12 @@ export default function FileRecords() {
                                         Employee {sortConfig.key === 'employee_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CCP Account</th>
+
+                                    {/* REIMBURSEMENT COLUMN */}
+                                    {(fileType === 'surgery' || fileType === 'operations') && (
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reimbursement (60%)</th>
+                                    )}
+
                                     <th
                                         className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                                         onClick={() => handleSort('amount')}
@@ -416,8 +423,14 @@ export default function FileRecords() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {paginatedRecords.length > 0 ? paginatedRecords.map(record => (
+                                {paginatedRecords.length > 0 ? paginatedRecords.map((record, index) => (
                                     <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+
+                                        {/* SERIAL NUMBER */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bg text-gray-500 dark:text-gray-400">
+                                            {record.serial_number || ((page - 1) * PAGE_SIZE + index + 1)}
+                                        </td>
+
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {record.status === 'incomplete' ? (
                                                 <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400" title="Incomplete" />
@@ -428,6 +441,14 @@ export default function FileRecords() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{formatDate(record.treatment_date)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{record.employee_name}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">{record.postal_account}</td>
+
+                                        {/* REIMBURSEMENT VALUE */}
+                                        {(fileType === 'surgery' || fileType === 'operations') && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 text-right font-semibold">
+                                                {formatCurrency(record.reimbursement_amount || (record.amount * 0.60))}
+                                            </td>
+                                        )}
+
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200 text-right font-semibold">{formatCurrency(record.amount)}</td>
                                         <td className="px-6 py-4 text-sm max-w-xs truncate">
                                             {record.status === 'incomplete' ? (

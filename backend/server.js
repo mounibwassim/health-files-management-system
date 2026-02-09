@@ -138,10 +138,10 @@ app.post('/api/users/add', authenticateToken, async (req, res) => {
             if (role === 'manager') targetRole = 'manager';
             else targetRole = 'user';
 
-            // If Admin creates a user, we might want to assign a manager? 
-            // For now, let's keep manager_id null if created by admin directly, 
-            // OR maybe pass it in body if we want Admin to assign.
-            // Simplified: Admin creates unmanaged employees or managers.
+            // If Admin creates a 'user', checks if managerId is provided to assign them.
+            if (targetRole === 'user' && req.body.managerId) {
+                managerId = parseInt(req.body.managerId);
+            }
         } else if (creatorRole === 'manager') {
             // Manager can ONLY create 'user'
             if (role === 'manager') return res.status(403).json({ error: "Managers cannot create other Managers." });
@@ -189,11 +189,13 @@ const authenticateToken = (req, res, next) => {
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
     try {
-        // Fix: Use Correlated Subquery for accurate count
+        // Fix: Use Correlated Subquery for accurate count and LEFT JOIN for Manager Name
         const result = await pool.query(`
-            SELECT u.id, u.username, u.role, u.created_at, u.last_login,
+            SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.manager_id,
+            m.username as manager_username,
             (SELECT COUNT(*) FROM records r WHERE r.user_id = u.id) as records_count
             FROM users u
+            LEFT JOIN users m ON u.manager_id = m.id
             ORDER BY u.role ASC, u.created_at DESC
         `);
         res.json(result.rows);
@@ -203,7 +205,28 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
     }
 });
 
-// Route Removed: Reset User Password (Security Update)
+// Route: Reset User Password (Admin Only)
+app.post('/api/users/change-password', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+    const { userId, newPassword } = req.body;
+
+    if (!userId || !newPassword) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+        // Hash Password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedPassword, userId]);
+
+        console.log(`[Admin] Password reset for user ID ${userId} by Admin ${req.user.username}`);
+        res.json({ success: true, message: "Password updated successfully" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server Error" });
+    }
+});
 
 app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
