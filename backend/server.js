@@ -483,84 +483,61 @@ app.get('/api/records/download/:stateId/:fileTypeId', authenticateToken, async (
 
 // 2. Create Record (With Transaction & Persistent Serial)
 app.post('/api/records', authenticateToken, async (req, res) => {
-    // SECURITY: FORCE user_id from token, ignore req.body
-    const userIdFromToken = req.user.id;
+    const userIdFromToken = parseInt(req.user.id, 10); // FORCE INTEGER
     console.log("[POST /records] Request received from user:", userIdFromToken);
 
     const client = await pool.connect();
+
     try {
         const { stateId, fileType, employeeName, postalAccount, amount, treatmentDate, notes, status, reimbursementAmount } = req.body;
         console.log(`[POST Record] Payload: State=${stateId}, File=${fileType}, Name=${employeeName}, Amount=${amount}, Status=${status}`);
 
-        await client.query('BEGIN'); // Start Transaction
-        console.log("[POST Record] Transaction Started");
+        await client.query('BEGIN');
 
-        // 1. Resolve IDs (Case-Insensitive & Robust)
+        // Resolve internal IDs
         const stateRes = await client.query('SELECT id FROM states WHERE code = $1', [stateId]);
-        // Try exact match first, then case-insensitive
-        let fileRes = await client.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
-        if (fileRes.rows.length === 0) {
-            fileRes = await client.query('SELECT id FROM file_types WHERE name ILIKE $1', [fileType]);
-        }
+        const fileRes = await client.query('SELECT id FROM file_types WHERE name ILIKE $1', [fileType]);
 
         if (stateRes.rows.length === 0 || fileRes.rows.length === 0) {
-            console.error("[POST Record] Invalid State/File. StateRes:", stateRes.rows.length, "FileRes:", fileRes.rows.length);
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: 'Invalid State or File Type' });
+            throw new Error("Invalid State or File Type");
         }
 
         const internalStateId = stateRes.rows[0].id;
-        const internalFileTypeId = fileRes.rows[0].id;
-        console.log(`[POST Record] Resolved IDs: State=${internalStateId}, File=${internalFileTypeId}`);
+        const internalFileId = fileRes.rows[0].id; // using ILIKE result
 
-        // Ensure Amount is Number
-        const numericAmount = parseFloat(amount);
-        const numericReimbursement = parseFloat(reimbursementAmount || 0);
-        if (isNaN(numericAmount)) {
-            console.error("[POST Record] Invalid Amount format:", amount);
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: 'Invalid Amount' });
-        }
-
-        // 2. Calculate Next Serial Number (Scoped to State & FileType)
+        // Calculate Serial
         const maxSerialRes = await client.query(
             'SELECT MAX(serial_number) as max_serial FROM records WHERE state_id = $1 AND file_type_id = $2',
-            [internalStateId, internalFileTypeId]
+            [internalStateId, internalFileId] // Corrected variable name from Guaranteed Fix logic
         );
         const nextSerial = (maxSerialRes.rows[0].max_serial || 0) + 1;
-        console.log(`[POST Record] Calculated Serial: ${nextSerial}`);
 
-        // 3. Insert Record (Strict User Ownership - Enforced Integer)
-        const insertQuery = `
+        // INSERT - STRICT USER OWNERSHIP
+        const insertRes = await client.query(`
             INSERT INTO records 
             (state_id, file_type_id, employee_name, postal_account, amount, treatment_date, notes, status, user_id, reimbursement_amount, serial_number)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
-        `;
-        const insertParams = [
+        `, [
             internalStateId,
-            internalFileTypeId,
+            internalFileId,
             employeeName,
             postalAccount,
-            numericAmount,
+            parseFloat(amount),
             treatmentDate,
             notes,
             status || 'completed',
-            parseInt(userIdFromToken, 10), // STRICTLY use token ID (FORCE INT)
-            numericReimbursement,
+            userIdFromToken,
+            parseFloat(reimbursementAmount || 0),
             nextSerial
-        ];
+        ]);
 
-        const insertRes = await client.query(insertQuery, insertParams);
-
-        await client.query('COMMIT'); // Commit Transaction
+        await client.query('COMMIT');
         console.log(`[POST Record] SUCCESS: Record saved for User ID: ${userIdFromToken}. Serial: ${nextSerial}`);
         res.status(201).json(insertRes.rows[0]);
-
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error("[POST Record Error]", err.message);
-        // Explicitly return database error details to frontend for debugging
+        console.error("SAVE ERROR:", err.message);
         res.status(500).json({ error: "Failed to save record", details: err.message });
     } finally {
         client.release();
