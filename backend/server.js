@@ -204,28 +204,16 @@ app.post('/api/users/add', authenticateToken, async (req, res) => {
 
 // --- Admin Routes ---
 
-// Route: Get Users (Admin: All) - With Record Counts
+// Route: Get Users (Admin: All) - Simplified Verification
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Access denied" });
+
     try {
-        const { role } = req.user;
-
-        // Force-show EVERY account if requester is Admin
-        if (role === 'admin') {
-            const query = `
-                SELECT u.id, u.username, u.role, u.last_login, u.visible_password, COUNT(r.id) as records_count 
-                FROM users u 
-                LEFT JOIN records r ON u.id = r.user_id 
-                GROUP BY u.id 
-                ORDER BY u.role ASC, u.username ASC
-            `;
-            const allAccounts = await pool.query(query);
-            return res.json(allAccounts.rows);
-        }
-
-        res.status(403).json({ error: "Access denied" });
+        // Simple fetch to verify accounts exist
+        const result = await pool.query('SELECT id, username, role, last_login, visible_password FROM users ORDER BY username ASC');
+        res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Database error' });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -536,70 +524,57 @@ app.get('/api/records/download/:stateId/:fileTypeId', authenticateToken, async (
 
 // 2. Create Record (With Transaction & Persistent Serial)
 app.post('/api/records', authenticateToken, async (req, res) => {
-    // SECURITY: Validate Token Content
-    console.log("[POST /records] RAW User from Token:", req.user);
+    // 1. Force integer ID from Token
     const userIdFromToken = parseInt(req.user.id, 10);
-
-    if (!req.user || !req.user.id || isNaN(userIdFromToken)) {
-        console.error("[POST Record] Security Failure: Invalid User ID in token.");
-        return res.status(403).json({ error: "Session Invalid. Please Log Out and Log In again.", code: "INVALID_USER" });
-    }
-
-    console.log(`[POST /records] Authenticated User ID: ${userIdFromToken} (Role: ${req.user.role})`);
-
     const client = await pool.connect();
 
     try {
         const { stateId, fileType, employeeName, postalAccount, amount, treatmentDate, notes, status, reimbursementAmount } = req.body;
-        console.log(`[POST Record] Payload: State=${stateId}, File=${fileType}, Name=${employeeName}, Amount=${amount}, Status=${status}`);
 
         await client.query('BEGIN');
 
-        // Resolve internal IDs
+        // 2. Resolve IDs (Using your specific DB structure)
         const stateRes = await client.query('SELECT id FROM states WHERE code = $1', [stateId]);
-        const fileRes = await client.query('SELECT id FROM file_types WHERE name ILIKE $1', [fileType]);
+
+        // Robust File Resolution
+        let fileRes = await client.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
+        if (fileRes.rows.length === 0) {
+            fileRes = await client.query('SELECT id FROM file_types WHERE name ILIKE $1', [`%${fileType}%`]);
+        }
 
         if (stateRes.rows.length === 0 || fileRes.rows.length === 0) {
-            throw new Error("Invalid State or File Type");
+            throw new Error(`Mapping Failed: State(${stateId}) found: ${stateRes.rows.length}, File(${fileType}) found: ${fileRes.rows.length}`);
         }
 
         const internalStateId = stateRes.rows[0].id;
-        const internalFileId = fileRes.rows[0].id; // using ILIKE result
+        const internalFileId = fileRes.rows[0].id;
 
-        // Calculate Serial
+        // 3. Serial Number Logic
         const maxSerialRes = await client.query(
             'SELECT MAX(serial_number) as max_serial FROM records WHERE state_id = $1 AND file_type_id = $2',
-            [internalStateId, internalFileId] // Corrected variable name from Guaranteed Fix logic
+            [internalStateId, internalFileId]
         );
-        const nextSerial = (maxSerialRes.rows[0].max_serial || 0) + 1;
+        const nextSerial = (parseInt(maxSerialRes.rows[0].max_serial) || 0) + 1;
 
-        // INSERT - STRICT USER OWNERSHIP
+        // 4. THE INSERT (No manager_id, just the essentials)
         const insertRes = await client.query(`
             INSERT INTO records 
             (state_id, file_type_id, employee_name, postal_account, amount, treatment_date, notes, status, user_id, reimbursement_amount, serial_number)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
         `, [
-            internalStateId,
-            internalFileId,
-            employeeName,
-            postalAccount,
-            parseFloat(amount),
-            treatmentDate,
-            notes,
-            status || 'completed',
-            userIdFromToken,
-            parseFloat(reimbursementAmount || 0),
-            nextSerial
+            internalStateId, internalFileId, employeeName, postalAccount,
+            parseFloat(amount), treatmentDate, notes, status || 'completed',
+            userIdFromToken, parseFloat(reimbursementAmount || 0), nextSerial
         ]);
 
         await client.query('COMMIT');
-        console.log(`[POST Record] SUCCESS: Record saved for User ID: ${userIdFromToken}. Serial: ${nextSerial}`);
         res.status(201).json(insertRes.rows[0]);
+
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error("SAVE ERROR:", err.message);
-        res.status(500).json({ error: "Failed to save record", details: err.message });
+        console.error("CRITICAL SAVE ERROR:", err.message);
+        res.status(500).json({ error: "Record not saved", details: err.message });
     } finally {
         client.release();
     }
