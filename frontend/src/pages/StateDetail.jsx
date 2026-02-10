@@ -28,8 +28,8 @@ export default function StateDetail() {
         const fetchData = async () => {
             try {
                 const [stateRes, countsRes] = await Promise.all([
-                    api.get(`/states/${id}`),
-                    api.get(`/states/${id}/counts`)
+                    api.get(`/states/${id}?_=${Date.now()}`),
+                    api.get(`/states/${id}/counts?_=${Date.now()}`)
                 ]);
                 setState(stateRes.data);
                 setCounts(countsRes.data);
