@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "name": "surgery",
+    "display_name": "Surgery"
+  },
+  {
+    "id": 2,
+    "name": "ivf",
+    "display_name": "IVF (In Vitro Fertilization)"
+  },
+  {
+    "id": 3,
+    "name": "eye",
+    "display_name": "Ophthalmology (Eye)"
+  },
+  {
+    "id": 4,
+    "name": "labs",
+    "display_name": "Radiology & Labs"
+  },
+  {
+    "id": 20,
+    "name": "Cram",
+    "display_name": "Cram"
+  },
+  {
+    "id": 21,
+    "name": "Cnas",
+    "display_name": "Cnas"
+  },
+  {
+    "id": 22,
+    "name": "Casnos",
+    "display_name": "Casnos"
+  }
+]
