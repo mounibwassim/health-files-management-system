@@ -191,8 +191,7 @@ export default function Settings() {
                                     }`}
                             >
                                 <option value="user">Employee (User)</option>
-                                {user.role === 'admin' && <option value="manager">Manager</option>}
-                                {user.role === 'admin' && <option value="admin">Admin</option>}
+                                <option value="admin">Admin</option>
                             </select>
                             <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
                         </div>
