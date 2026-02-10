@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS records (
     postal_account VARCHAR(50),
     amount DECIMAL(15, 2) NOT NULL, -- Currency
     treatment_date TIMESTAMP WITH TIME ZONE NOT NULL, -- Stored in UTC
-    status VARCHAR(50) DEFAULT 'completed', -- Added status column
+    status VARCHAR(50) DEFAULT 'completed',
     notes TEXT,
+    user_id INTEGER REFERENCES users(id), -- The Employee who created it
+    manager_id INTEGER REFERENCES users(id), -- The Manager of that Employee
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

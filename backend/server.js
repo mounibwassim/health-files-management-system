@@ -562,11 +562,15 @@ app.post('/api/records', authenticateToken, async (req, res) => {
         const nextSerial = (maxSerialRes.rows[0].max_serial || 0) + 1;
         console.log(`[POST Record] Calculated Serial: ${nextSerial}`);
 
-        // 3. Insert Record
+        // 2.5 Fetch User's Manager (Hierarchy Check)
+        const userRes = await client.query('SELECT manager_id FROM users WHERE id = $1', [req.user.id]);
+        const managerId = userRes.rows[0]?.manager_id || null; // If null, user might be top-level or manager themselves
+
+        // 3. Insert Record (Explicit Logic: Created By User, Visible to Manager)
         const insertQuery = `
             INSERT INTO records 
-            (state_id, file_type_id, employee_name, postal_account, amount, treatment_date, notes, status, user_id, reimbursement_amount, serial_number)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            (state_id, file_type_id, employee_name, postal_account, amount, treatment_date, notes, status, user_id, manager_id, reimbursement_amount, serial_number)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
         `;
         const insertParams = [
@@ -579,6 +583,7 @@ app.post('/api/records', authenticateToken, async (req, res) => {
             notes,
             status || 'completed',
             req.user.id,
+            managerId, // Include Manager ID for instant visibility
             numericReimbursement,
             nextSerial
         ];
