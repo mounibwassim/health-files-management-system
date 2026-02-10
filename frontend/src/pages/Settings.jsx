@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Shield, Trash2, UserPlus, Users, Activity, Clock, Key, Lock, ChevronDown } from 'lucide-react';
+import { Shield, Trash2, UserPlus, Users, Activity, Clock, Key, Lock, ChevronDown, Eye, EyeOff } from 'lucide-react';
 
 export default function Settings() {
     const { user } = useAuth();
@@ -14,6 +14,7 @@ export default function Settings() {
     // Add User State
     const [newEmpName, setNewEmpName] = useState('');
     const [newEmpPass, setNewEmpPass] = useState('');
+    const [showPassword, setShowPassword] = useState(false); // Visibility Toggle
     const [newEmpRole, setNewEmpRole] = useState('user'); // 'user', 'manager', 'admin'
     const [selectedManagerId, setSelectedManagerId] = useState('');
 
@@ -64,8 +65,12 @@ export default function Settings() {
             }
         } catch (err) {
             console.error(err);
-            setError(`❌ Error: ${err.response?.data?.error || "Could not add user"}`);
-            setTimeout(() => setError(''), 3000);
+            const status = err.response?.status;
+            const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            const fullError = status ? `${status}: ${errorMsg}` : errorMsg;
+
+            setError(`❌ Error: ${fullError}`);
+            setTimeout(() => setError(''), 5000);
         }
     };
 
@@ -150,14 +155,23 @@ export default function Settings() {
                     </div>
                     <div className="lg:col-span-1">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
-                        <input
-                            type="text"
-                            value={newEmpPass}
-                            onChange={(e) => setNewEmpPass(e.target.value)}
-                            className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
-                            placeholder="e.g. pass123"
-                            required
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={newEmpPass}
+                                onChange={(e) => setNewEmpPass(e.target.value)}
+                                className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all pr-10"
+                                placeholder="e.g. pass123"
+                                required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
                     </div>
 
                     {/* ROLE SELECTION */}
