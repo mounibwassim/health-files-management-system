@@ -600,11 +600,28 @@ app.put('/api/records/:id', authenticateToken, async (req, res) => {
 app.delete('/api/records/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        await pool.query('DELETE FROM records WHERE id = $1', [id]);
+        const { id: userId, role } = req.user;
+
+        let query = 'DELETE FROM records WHERE id = $1';
+        let params = [id];
+
+        if (role !== 'admin') {
+            // Employees can only delete their own records
+            query += ' AND user_id = $2';
+            params.push(userId);
+        }
+
+        const result = await pool.query(query, params);
+
+        if (result.rowCount === 0) {
+            // Could be 404 (not found) or 403 (not owned). ambiguous but safe.
+            return res.status(404).json({ error: "Record not found or access denied." });
+        }
+
         res.json({ success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Database error' });
+        console.error("[DELETE Record Error]", err.message);
+        res.status(500).json({ error: 'Database error: ' + err.message });
     }
 });
 
@@ -628,22 +645,14 @@ app.delete('/api/users/:id', authenticateToken, async (req, res) => {
 
     try {
         // Admin can delete anyone
+        ```javascript
+
         if (role === 'admin') {
             await pool.query('DELETE FROM users WHERE id = $1', [targetUserId]);
             return res.json({ success: true });
         }
 
-        // Manager can only delete their own employees
-        if (role === 'manager') {
-            const result = await pool.query(
-                'DELETE FROM users WHERE id = $1 AND role = $2 AND manager_id = $3',
-                [targetUserId, 'user', requesterId]
-            );
-            if (result.rowCount === 0) return res.status(403).send("Forbidden: You can only delete your employees.");
-            return res.json({ success: true });
-        }
-
-        res.sendStatus(403);
+        return res.status(403).json({ error: "Access Denied: Only Admins can delete users." });
     } catch (err) {
         console.error("[Delete User Error]", err);
         res.status(500).json({ error: "Server Error" });
@@ -659,8 +668,8 @@ app.get('/api/analytics', authenticateToken, async (req, res) => {
         let query = `
             SELECT s.name, COUNT(r.id) as count 
             FROM states s 
-            LEFT JOIN records r ON s.id = r.state_id 
-        `;
+            LEFT JOIN records r ON s.id = r.state_id
+            `;
 
         const params = [];
 
@@ -670,11 +679,11 @@ app.get('/api/analytics', authenticateToken, async (req, res) => {
         } else if (role === 'manager') {
             // Manager: Count records from SELF or DIRECT REPORTS
             // We append to the JOIN condition, not WHERE, to keep States visible (Count=0)
-            query += ` AND r.user_id IN (SELECT id FROM users WHERE manager_id = $1 OR id = $1) `;
+            query += ` AND r.user_id IN(SELECT id FROM users WHERE manager_id = $1 OR id = $1) `;
             params.push(userId);
         } else {
             // Employee: Count records from SELF only
-            query += ` AND r.user_id = $1 `;
+            query += ` AND r.user_id = $1`;
             params.push(userId);
         }
 
@@ -689,6 +698,6 @@ app.get('/api/analytics', authenticateToken, async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+    console.log(`Server running on port ${ port } `);
     console.log(`[Version Check] Server Code v1.2 - AuthenticateToken Fixed`);
 });

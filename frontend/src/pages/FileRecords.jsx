@@ -274,7 +274,8 @@ export default function FileRecords() {
             // Clear dashboard cache
             sessionStorage.removeItem('states_data');
         } catch (err) {
-            alert('Failed to delete record');
+            const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
+            alert(`Failed to delete record: ${errorMsg}`);
         }
     };
 
