@@ -645,8 +645,6 @@ app.delete('/api/users/:id', authenticateToken, async (req, res) => {
 
     try {
         // Admin can delete anyone
-        ```javascript
-
         if (role === 'admin') {
             await pool.query('DELETE FROM users WHERE id = $1', [targetUserId]);
             return res.json({ success: true });
@@ -698,6 +696,6 @@ app.get('/api/analytics', authenticateToken, async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server running on port ${ port } `);
+    console.log(`Server running on port ${port} `);
     console.log(`[Version Check] Server Code v1.2 - AuthenticateToken Fixed`);
 });
