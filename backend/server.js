@@ -21,6 +21,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Log all requests
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+});
+
 // Root Health Check (Easy to verify in browser)
 app.get('/', (req, res) => {
     res.send('Health Files Backend is RUNNING. v' + new Date().toISOString());
@@ -49,12 +55,20 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Middleware (Defined early to avoid hoisting issues)
 const authenticateToken = (req, res, next) => {
+    console.log(`[AUTH] Checking token for ${req.url}`);
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    if (token == null) return res.sendStatus(401);
+    if (token == null) {
+        console.log(`[AUTH] No token found`);
+        return res.sendStatus(401);
+    }
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) {
+            console.log(`[AUTH] Token invalid:`, err.message);
+            return res.sendStatus(403);
+        }
+        console.log(`[AUTH] Token valid for user: ${user.username} (${user.id})`);
         req.user = user;
         next();
     });
@@ -526,21 +540,25 @@ app.get('/api/records/download/:stateId/:fileTypeId', authenticateToken, async (
 app.post('/api/records', authenticateToken, async (req, res) => {
     // 1. Force integer ID from Token
     const userIdFromToken = parseInt(req.user.id, 10);
-    const client = await pool.connect();
+    console.log(`[POST /records] User: ${userIdFromToken}, Body:`, req.body);
 
+    let client;
     try {
+        client = await pool.connect();
         const { stateId, fileType, employeeName, postalAccount, amount, treatmentDate, notes, status, reimbursementAmount } = req.body;
 
         await client.query('BEGIN');
 
         // 2. Resolve IDs (Using your specific DB structure)
         const stateRes = await client.query('SELECT id FROM states WHERE code = $1', [stateId]);
+        console.log(`[POST /records] Found State:`, stateRes.rows[0]);
 
         // Robust File Resolution
         let fileRes = await client.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
         if (fileRes.rows.length === 0) {
             fileRes = await client.query('SELECT id FROM file_types WHERE name ILIKE $1', [`%${fileType}%`]);
         }
+        console.log(`[POST /records] Found FileType:`, fileRes.rows[0]);
 
         if (stateRes.rows.length === 0 || fileRes.rows.length === 0) {
             throw new Error(`Mapping Failed: State(${stateId}) found: ${stateRes.rows.length}, File(${fileType}) found: ${fileRes.rows.length}`);
@@ -555,6 +573,7 @@ app.post('/api/records', authenticateToken, async (req, res) => {
             [internalStateId, internalFileId]
         );
         const nextSerial = (parseInt(maxSerialRes.rows[0].max_serial) || 0) + 1;
+        console.log(`[POST /records] Next Serial: ${nextSerial}`);
 
         // 4. THE INSERT (No manager_id, just the essentials)
         const insertRes = await client.query(`
@@ -567,16 +586,17 @@ app.post('/api/records', authenticateToken, async (req, res) => {
             parseFloat(amount), treatmentDate, notes, status || 'completed',
             userIdFromToken, parseFloat(reimbursementAmount || 0), nextSerial
         ]);
+        console.log(`[POST /records] Insert Success:`, insertRes.rows[0].id);
 
         await client.query('COMMIT');
         res.status(201).json(insertRes.rows[0]);
 
     } catch (err) {
-        await client.query('ROLLBACK');
-        console.error("CRITICAL SAVE ERROR:", err.message);
+        if (client) await client.query('ROLLBACK');
+        console.error("CRITICAL SAVE ERROR:", err.message, err.stack);
         res.status(500).json({ error: "Record not saved", details: err.message });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 
