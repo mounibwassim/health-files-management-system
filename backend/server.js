@@ -486,8 +486,16 @@ app.get('/api/records/download/:stateId/:fileTypeId', authenticateToken, async (
 
 // 2. Create Record (With Transaction & Persistent Serial)
 app.post('/api/records', authenticateToken, async (req, res) => {
-    const userIdFromToken = parseInt(req.user.id, 10); // FORCE INTEGER
-    console.log("[POST /records] Request received from user:", userIdFromToken);
+    // SECURITY: Validate Token Content
+    console.log("[POST /records] RAW User from Token:", req.user);
+    const userIdFromToken = parseInt(req.user.id, 10);
+
+    if (!req.user || !req.user.id || isNaN(userIdFromToken)) {
+        console.error("[POST Record] Security Failure: Invalid User ID in token.");
+        return res.status(403).json({ error: "Session Invalid. Please Log Out and Log In again.", code: "INVALID_USER" });
+    }
+
+    console.log(`[POST /records] Authenticated User ID: ${userIdFromToken} (Role: ${req.user.role})`);
 
     const client = await pool.connect();
 

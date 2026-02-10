@@ -272,15 +272,25 @@ export default function FileRecords() {
 
             // ERROR REPORTING Logic
             let errorMsg = "Unknown Error";
+            let showLogoutDetails = false;
+
             if (err.response) {
                 if (err.response.data && err.response.data.details) errorMsg = err.response.data.details;
                 else if (err.response.data && err.response.data.error) errorMsg = err.response.data.error;
                 else errorMsg = JSON.stringify(err.response.data);
+
+                if (err.response.data && err.response.data.code === 'INVALID_USER') {
+                    showLogoutDetails = true;
+                }
             } else {
                 errorMsg = err.message;
             }
 
-            alert(`❌ FAILED TO SAVE: ${errorMsg}\n\nTechnical Details: ${JSON.stringify(err.response?.data || {}, null, 2)}`);
+            if (showLogoutDetails) {
+                alert(`⚠️ SESSION EXPIRED\n\nPlease Log Out and Log In again to refresh your session.\n\nServer Message: ${errorMsg}`);
+            } else {
+                alert(`❌ FAILED TO SAVE: ${errorMsg}\n\nTechnical Details: ${JSON.stringify(err.response?.data || {}, null, 2)}`);
+            }
         }
     };
 
