@@ -212,8 +212,8 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
         const params = [];
 
         if (role === 'manager') {
-            // Manager sees themselves AND ALL Employees (Global View for Managers)
-            query += ` WHERE u.role = 'user' OR u.id = $1`;
+            // Manager sees themselves and their direct reports ONLY (Team Scope)
+            query += ` WHERE u.manager_id = $1 OR u.id = $1`;
             params.push(id);
         }
 

@@ -247,6 +247,9 @@ export default function FileRecords() {
                 return [savedRecord, ...prev];
             });
 
+            // Clear dashboard cache to ensure fresh stats
+            sessionStorage.removeItem('states_data');
+
             // Optional: Fetch to ensure consistency, but we have the data now.
             // fetchRecords(); 
         } catch (err) {
@@ -258,11 +261,15 @@ export default function FileRecords() {
 
     const confirmDelete = async () => {
         if (!recordToDelete) return;
+
         try {
-            await api.delete(`/records/${recordToDelete}`);
-            fetchRecords();
+            await api.delete(`/records/${recordToDelete.id}`);
+            setRecords(prev => prev.filter(r => r.id !== recordToDelete.id));
             setIsDeleteModalOpen(false);
             setRecordToDelete(null);
+
+            // Clear dashboard cache
+            sessionStorage.removeItem('states_data');
         } catch (err) {
             alert('Failed to delete record');
         }
