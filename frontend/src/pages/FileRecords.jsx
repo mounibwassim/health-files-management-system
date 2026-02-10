@@ -205,7 +205,9 @@ export default function FileRecords() {
 
     // Optimistic Save Handler
     const handleSave = async (recordData) => {
-        const isEdit = !!recordData.id;
+        // Fix: If ID starts with 'temp-', it's a NEW record, not an edit.
+        const isTempId = recordData.id && String(recordData.id).startsWith('temp-');
+        const isEdit = !!recordData.id && !isTempId;
 
         // 1. Optimistic Update
         const optimisticRecord = {
@@ -222,6 +224,7 @@ export default function FileRecords() {
             if (isEdit) {
                 return prev.map(r => r.id === recordData.id ? optimisticRecord : r);
             }
+            // Prepend new record (including temp-id ones we are about to save)
             return [optimisticRecord, ...prev];
         });
 
@@ -230,35 +233,48 @@ export default function FileRecords() {
         // 2. Background API Call
         try {
             let savedRecord;
+
+            // Clean payload: Remove temp ID before sending to backend
+            const payload = { ...recordData };
+            if (isTempId) delete payload.id;
+
             if (isEdit) {
-                const res = await api.put(`/records/${recordData.id}`, recordData);
+                const res = await api.put(`/records/${recordData.id}`, payload);
                 savedRecord = res.data;
             } else {
-                const res = await api.post('/records', recordData);
+                const res = await api.post('/records', payload);
                 savedRecord = res.data;
             }
 
-            // Update state with REAL record from server (has correct ID, Serial, etc.)
+            // Update state with REAL record from server
             setRecords(prev => {
                 if (isEdit) {
                     return prev.map(r => r.id === savedRecord.id ? savedRecord : r);
                 }
-                // Prepend new record
-                return [savedRecord, ...prev];
+                // Replace the temporary optimistic record with the real one
+                return prev.map(r => r.id === optimisticRecord.id ? savedRecord : r);
             });
 
-            // Clear dashboard cache to ensure fresh stats
+            // Clear dashboard cache
             sessionStorage.removeItem('states_data');
+            // Success Feedback (Toast/Alert)
+            // console.log("Record Saved:", savedRecord);
 
-            alert("Record Saved Successfully!"); // Explicit Feedback
-
-            // Optional: Fetch to ensure consistency, but we have the data now.
-            // fetchRecords(); 
         } catch (err) {
             console.error("Save failed", err);
             fetchRecords(); // Revert on error
-            const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
-            alert(`Failed to save record remotely: ${errorMsg}`);
+
+            // ERROR REPORTING Logic
+            let errorMsg = "Unknown Error";
+            if (err.response) {
+                if (err.response.data && err.response.data.details) errorMsg = err.response.data.details;
+                else if (err.response.data && err.response.data.error) errorMsg = err.response.data.error;
+                else errorMsg = JSON.stringify(err.response.data);
+            } else {
+                errorMsg = err.message;
+            }
+
+            alert(`❌ FAILED TO SAVE: ${errorMsg}\n\nTechnical Details: ${JSON.stringify(err.response?.data || {}, null, 2)}`);
         }
     };
 
