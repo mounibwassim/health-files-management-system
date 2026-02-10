@@ -508,12 +508,16 @@ app.post('/api/records', authenticateToken, async (req, res) => {
         await client.query('BEGIN'); // Start Transaction
         console.log("[POST Record] Transaction Started");
 
-        // 1. Resolve IDs
+        // 1. Resolve IDs (Case-Insensitive & Robust)
         const stateRes = await client.query('SELECT id FROM states WHERE code = $1', [stateId]);
-        const fileRes = await client.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
+        // Try exact match first, then case-insensitive
+        let fileRes = await client.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
+        if (fileRes.rows.length === 0) {
+            fileRes = await client.query('SELECT id FROM file_types WHERE name ILIKE $1', [fileType]);
+        }
 
         if (stateRes.rows.length === 0 || fileRes.rows.length === 0) {
-            console.error("[POST Record] Invalid State or File Type. StateRes:", stateRes.rows.length, "FileRes:", fileRes.rows.length);
+            console.error("[POST Record] Invalid State/File. StateRes:", stateRes.rows.length, "FileRes:", fileRes.rows.length);
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Invalid State or File Type' });
         }
@@ -521,6 +525,15 @@ app.post('/api/records', authenticateToken, async (req, res) => {
         const internalStateId = stateRes.rows[0].id;
         const internalFileTypeId = fileRes.rows[0].id;
         console.log(`[POST Record] Resolved IDs: State=${internalStateId}, File=${internalFileTypeId}`);
+
+        // Ensure Amount is Number
+        const numericAmount = parseFloat(amount);
+        const numericReimbursement = parseFloat(reimbursementAmount || 0);
+        if (isNaN(numericAmount)) {
+            console.error("[POST Record] Invalid Amount format:", amount);
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Invalid Amount' });
+        }
 
         // 2. Calculate Next Serial Number (Scoped to State & FileType)
         const maxSerialRes = await client.query(
@@ -542,12 +555,12 @@ app.post('/api/records', authenticateToken, async (req, res) => {
             internalFileTypeId,
             employeeName,
             postalAccount,
-            amount,
+            numericAmount,
             treatmentDate,
             notes,
             status || 'completed',
             req.user.id,
-            reimbursementAmount || 0,
+            numericReimbursement,
             nextSerial
         ];
 
