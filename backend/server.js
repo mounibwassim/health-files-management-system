@@ -202,7 +202,7 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
 
         // Force-show EVERY account if requester is Admin
         if (role === 'admin') {
-            const allAccounts = await pool.query('SELECT * FROM users ORDER BY username ASC');
+            const allAccounts = await pool.query('SELECT * FROM users ORDER BY role ASC, username ASC');
             return res.json(allAccounts.rows);
         }
 
