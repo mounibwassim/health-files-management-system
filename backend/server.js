@@ -591,8 +591,8 @@ app.put('/api/records/:id', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Record not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Database error' });
+        console.error("[PUT Record Error]", err.message);
+        res.status(500).json({ error: "Failed to update record", details: err.message });
     }
 });
 
