@@ -312,22 +312,55 @@ app.get('/api/states/:id/counts', authenticateToken, async (req, res) => {
         const userId = req.user.id;
         const role = req.user.role;
 
+        // Simplified Count Query (Matches "My Work" for Users, "All Work" for Admins)
+        // Note: We remove the JOIN users as we only need r.user_id
         const query = `
             SELECT f.name, COUNT(r.id) as count 
             FROM file_types f
-            LEFT JOIN records r ON f.id = r.file_type_id AND r.state_id = $1
-            LEFT JOIN users u ON r.user_id = u.id
-            ${role === 'admin' ? '' : 'AND r.user_id = $2'}
+            LEFT JOIN records r ON f.id = r.file_type_id AND r.state_id = $1 ${role === 'admin' ? '' : 'AND r.user_id = $2'}
             GROUP BY f.name
         `;
         const params = [stateId];
         if (role !== 'admin') params.push(userId);
 
         const result = await pool.query(query, params);
-        const counts = {};
+
+        // MAPPING: Database Name -> Frontend ID
+        // DB Names: "Surgery", "IVF (In Vitro Fertilization)", "Ophthalmology (Eye)", "Radiology & Labs"
+        // Frontend IDs: "surgery", "ivf", "eye", "labs"
+        const mapping = {
+            'Surgery': 'surgery',
+            'IVF (In Vitro Fertilization)': 'ivf',
+            'IVF': 'ivf', // Fallback
+            'Ophthalmology (Eye)': 'eye',
+            'Ophthalmology': 'eye', // Fallback
+            'Radiology & Labs': 'labs',
+            'Labs': 'labs' // Fallback
+        };
+
+        const counts = {
+            surgery: 0,
+            ivf: 0,
+            eye: 0,
+            labs: 0
+        };
+
         result.rows.forEach(row => {
-            counts[row.name] = parseInt(row.count);
+            // Trim and map
+            const dbName = row.name.trim();
+            const key = mapping[dbName] || dbName.toLowerCase(); // Fallback to lowercase if no map
+            // Note: If multiple DB names map to same key (unlikely), they overwrite or need summing.
+            // But here distinct names map to distinct keys.
+            if (counts.hasOwnProperty(key)) {
+                counts[key] = parseInt(row.count);
+            } else {
+                // If mapping failed, maybe try strict match or just ignore?
+                // Let's rely on standard names.
+                // console.log("Unmapped count key:", dbName); 
+            }
         });
+
+        console.log(`[GET Counts] State=${id} Role=${role} Counts=`, counts);
         res.json(counts);
     } catch (err) {
         console.error("Counts Error:", err);
