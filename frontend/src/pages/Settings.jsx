@@ -52,7 +52,8 @@ export default function Settings() {
             // Using the /api/users/add endpoint we saw earlier (or fallback to admin/add-user if that was the route)
             // The previous summary said /api/users/add was created. Let's strictly use the one we saw or the one we will ensure exists.
             // I will assume /api/users/add is the robust one based on previous context.
-            const response = await api.post('/api/users/add', payload);
+            // Fix: Remove /api prefix since axios base already has it
+            const response = await api.post('/users/add', payload);
 
             if (response.data) {
                 setMessage(`✅ Success: Added ${newEmpName} as ${newEmpRole}`);
@@ -107,7 +108,8 @@ export default function Settings() {
         if (!resetModalUser || !resetPasswordValue) return;
 
         try {
-            await api.post(`/api/users/change-password`, {
+            // Fix: Remove /api prefix
+            await api.post(`/users/change-password`, {
                 userId: resetModalUser.id,
                 newPassword: resetPasswordValue
             });
@@ -195,29 +197,12 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    {/* MANAGER ASSIGNMENT (Only if User) */}
+                    {/* MANAGER ASSIGNMENT REMOVED AS REQUESTED */}
+                    {/* 
                     <div className="lg:col-span-1">
-                        <label className={`block text-sm font-medium mb-1 transition-colors ${newEmpRole === 'user' ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
-                            Report To (Manager)
-                        </label>
-                        <div className="relative">
-                            <select
-                                value={selectedManagerId}
-                                onChange={(e) => setSelectedManagerId(e.target.value)}
-                                disabled={newEmpRole !== 'user'}
-                                className={`w-full p-2.5 rounded-lg border transition-all appearance-none ${newEmpRole === 'user'
-                                    ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500'
-                                    : 'border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                                    }`}
-                            >
-                                <option value="">-- Direct to Admin --</option>
-                                {managers.map(mgr => (
-                                    <option key={mgr.id} value={mgr.id}>{mgr.username}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
+                        ...
+                    </div> 
+                    */}
 
                     <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-6 rounded-lg transition-colors shadow-md w-full hover:shadow-lg flex items-center justify-center">
                         <UserPlus className="w-5 h-5 mr-2" />
