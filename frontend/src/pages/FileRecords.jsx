@@ -250,6 +250,8 @@ export default function FileRecords() {
             // Clear dashboard cache to ensure fresh stats
             sessionStorage.removeItem('states_data');
 
+            alert("Record Saved Successfully!"); // Explicit Feedback
+
             // Optional: Fetch to ensure consistency, but we have the data now.
             // fetchRecords(); 
         } catch (err) {

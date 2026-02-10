@@ -48,6 +48,20 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// --- TEST ROUTE ---
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT count(*) FROM records');
+        res.json({
+            success: true,
+            message: "Database Connected",
+            recordCount: result.rows[0].count
+        });
+    } catch (err) {
+        res.status(500).json({ error: "DB Error: " + err.message });
+    }
+});
+
 // --- Step 1: Register Route ---
 app.post('/api/register', async (req, res) => {
     let { username, password } = req.body;
@@ -363,7 +377,12 @@ app.get('/api/states/:stateId/files/:fileType/records', authenticateToken, async
 
         // 1. Resolve IDs explicitly to match POST logic
         const stateRes = await pool.query('SELECT id FROM states WHERE code = $1', [stateId]);
-        const fileRes = await pool.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
+
+        // Try strict, then loose match for File Type
+        let fileRes = await pool.query('SELECT id FROM file_types WHERE name = $1', [fileType]);
+        if (fileRes.rows.length === 0) {
+            fileRes = await pool.query('SELECT id FROM file_types WHERE name ILIKE $1', [fileType]);
+        }
 
         if (stateRes.rows.length === 0) return res.status(404).json({ error: "State not found" });
         if (fileRes.rows.length === 0) return res.status(404).json({ error: "File type not found" });
