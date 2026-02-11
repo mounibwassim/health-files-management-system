@@ -47,7 +47,7 @@ export const generatePDFDoc = async ({ stateId, fileType, records, user }) => {
         'operations': 'الجراحة',
         'cns': 'الصندوق الوطني',
         'casnos': 'كازنوس',
-        'ivf': 'أطفال (الإخصاب المخبري)',
+        'ivf': 'أطفال )الإخصاب المخبري(',
         'labs': 'الأشعة والمختبرات',
         'lab': 'المخبر',
         'eye': 'طب العيون',
