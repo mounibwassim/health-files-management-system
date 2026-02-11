@@ -58,11 +58,14 @@ export default function FileRecords() {
 
     // Translation Map
     const translationMap = {
-        'surgery': 'العمليات الجراحية',
+        'surgery': 'الجراحة',
+        'operations': 'الجراحة',
         'cns': 'الصندوق الوطني',
         'casnos': 'كازنوس',
-        'ivf': 'التلقيح الاصطناعي',
+        'ivf': 'أطفال (الإخصاب المخبري)',
+        'labs': 'الأشعة والمختبرات',
         'lab': 'المخبر',
+        'eye': 'طب العيون',
         'ophthalmology': 'طب العيون',
         'radiology': 'الأشعة',
         'transport': 'النقل الصحي',
@@ -115,7 +118,7 @@ export default function FileRecords() {
             }
 
             // Title Logic
-            const arabicTitle = translationMap[fileType] || fileType.toUpperCase();
+            const arabicTitle = translationMap[fileType] || translationMap[fileType.toLowerCase()] || fileType.toUpperCase();
 
             doc.setFontSize(18);
             // Right-align Arabic title for better look, or Center
@@ -125,7 +128,7 @@ export default function FileRecords() {
             doc.text(`Scope: ${filterScope.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}`, 14, 30);
 
             // Columns
-            // 1. Serial Number (الرقم التسلسلي)
+            // 1. # (Index)
             // 2. Status
             // 3. Date
             // 4. Employee Name
@@ -136,7 +139,8 @@ export default function FileRecords() {
 
             const isSurgery = fileType === 'surgery' || fileType === 'operations';
 
-            const tableColumn = ["#", "Serial Number", "Status", "Date", "Employee Name", "CCP"];
+            // REMOVED "Serial Number" column, keeping "#" as the sequence
+            const tableColumn = ["#", "Status", "Date", "Employee Name", "CCP"];
 
             if (isSurgery) {
                 tableColumn.push("Reimbursement (60%)");
@@ -149,8 +153,8 @@ export default function FileRecords() {
 
             exportData.forEach((record, index) => {
                 const row = [
-                    index + 1, // Local Index
-                    record.serial_number || (index + 1), // DB Serial Number
+                    index + 1, // # (Local Index 1, 2, 3...)
+                    // REMOVED record.serial_number from this row array
                     record.status === 'completed' ? 'Done' : 'Pending',
                     new Date(record.treatment_date).toLocaleDateString(),
                     record.employee_name,
@@ -187,7 +191,7 @@ export default function FileRecords() {
                     // Adjust others as needed
                 },
                 didParseCell: (data) => {
-                    if (data.section === 'body' && data.column.index === 2) {
+                    if (data.section === 'body' && data.column.index === 1) { // Index 1 is now Status (was 2)
                         if (data.cell.raw === 'Done') data.cell.styles.textColor = [22, 163, 74];
                         else data.cell.styles.textColor = [220, 38, 38];
                     }
