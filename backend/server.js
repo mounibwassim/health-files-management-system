@@ -300,8 +300,11 @@ app.get('/api/states', authenticateToken, async (req, res) => {
 
 app.get('/api/states/:id', authenticateToken, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+        // Fix: Do NOT parse as int, because codes can be "16-1"
+        const id = req.params.id;
+
+        // Optional: Basic validation to prevent injection if needed, but PG handles parameters safely.
+        if (!id) return res.status(400).json({ error: 'Invalid ID' });
 
         const result = await pool.query('SELECT * FROM states WHERE code = $1', [id]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'State not found' });
