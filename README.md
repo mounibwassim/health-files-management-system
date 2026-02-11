@@ -84,3 +84,13 @@ npm run dev
 - **Data Isolation**: A user cannot access another user's records, even via direct API calls (enforced by `WHERE user_id = ?` clause).
 - **Admin Override**: Only users with `role: 'admin'` bypass isolation filters.
 - **Audit Trails**: Every PDF download and record creation is stamped with the actor's identity.
+
+### 8. Enhanced Admin & Data Control (New)
+- **Real-Time Activity Tracking**: System now tracks the exact timestamp of every user's last activity, providing Admins with live insights into workforce engagement.
+- **Admin-Only Password Management**: Admins can now securely view (via toggle) and reset user passwords directly from the dashboard.
+- **Record Counting**: Instant visibility into the total number of records created by each user, facilitating performance reviews.
+
+### 9. Geographic & User Management (New)
+- **Wilaya (State) Expansion**: Updated the Algerian Wilaya list to include new administrative divisions (e.g., Wilaya 16 split into 16-1, 16-2, 16-3).
+- **Numeric Sorting**: Fixed the sorting logic to ensure States are displayed in correct numerical order (1, 2, ... 10) rather than lexicographical order.
+- **User Management**: Streamlined "Add User" workflow with auto-fill protection and improved error handling.
